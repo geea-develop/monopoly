@@ -1,0 +1,18 @@
+{
+  "name": "monopoly",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multiplayer Monopoly web game",
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "dev:server": "pnpm --filter @monopoly/server dev",
+    "dev:client": "pnpm --filter @monopoly/client dev",
+    "build": "pnpm -r run build",
+    "build:shared": "pnpm --filter @monopoly/shared build",
+    "build:server": "pnpm --filter @monopoly/server build",
+    "build:client": "pnpm --filter @monopoly/client build"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: monopoly-server
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: |
+      npm install -g pnpm &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @monopoly/shared build &&
+      pnpm --filter @monopoly/server build
+    startCommand: node apps/server/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: CLIENT_URL
+        value: https://geea-develop.github.io
+      - key: DATA_DIR
+        value: /opt/render/project/src/data
+    disk:
+      name: monopoly-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

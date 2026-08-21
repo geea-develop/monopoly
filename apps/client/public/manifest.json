@@ -1,0 +1,9 @@
+{
+  "name": "Monopoly — Multiplayer",
+  "short_name": "Monopoly",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "description": "Free multiplayer Monopoly game"
+}
