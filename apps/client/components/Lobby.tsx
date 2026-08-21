@@ -29,12 +29,24 @@ export default function Lobby({ game, myPlayerId }: LobbyProps) {
         <div className="text-3xl font-mono font-bold text-yellow-400 tracking-wider">
           {game.id}
         </div>
-        <button
-          onClick={() => navigator.clipboard?.writeText(game.id)}
-          className="text-xs text-gray-400 hover:text-white mt-2 underline"
-        >
-          Copy to clipboard
-        </button>
+        <div className="flex justify-center gap-3 mt-3">
+          <button
+            onClick={() => navigator.clipboard?.writeText(game.id)}
+            className="text-xs text-gray-400 hover:text-white underline"
+          >
+            Copy code
+          </button>
+          <button
+            onClick={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("game", game.id);
+              navigator.clipboard?.writeText(url.toString());
+            }}
+            className="text-xs text-gray-400 hover:text-white underline"
+          >
+            Copy invite link
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">

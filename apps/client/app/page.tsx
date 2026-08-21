@@ -23,6 +23,15 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Read game code from URL on mount (for shareable links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gameParam = params.get("game");
+    if (gameParam) {
+      setGameCode(gameParam);
+    }
+  }, []);
+
   useEffect(() => {
     const socket = getSocket();
 
@@ -84,7 +93,11 @@ export default function Home() {
         "game:create",
         { playerName: playerName.trim() }
       );
-      if (!response.gameId) {
+      if (response.gameId) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("game", response.gameId);
+        window.history.replaceState({}, "", url.toString());
+      } else {
         setError("Failed to create game — invalid name or server error");
       }
     } catch (err: any) {
