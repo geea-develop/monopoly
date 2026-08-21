@@ -31,7 +31,7 @@ jobs:
       - name: Build client
         env:
           NEXT_PUBLIC_BASE_PATH: /monopoly
-          NEXT_PUBLIC_SERVER_URL: https://monopoly-server.onrender.com
+          NEXT_PUBLIC_SERVER_URL: https://monopoly-server-smff.onrender.com
           NEXT_PUBLIC_BUILD_ID: ${{ github.sha }}
         run: npm run build:client
 
