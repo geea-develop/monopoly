@@ -38,16 +38,54 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: CLIENT_URL, methods: ["GET", "POST"] },
 });
 
-// In-memory game store (backed by SQLite for persistence)
+// In-memory game store
 const games = new Map<string, GameState>();
 
 // Track socket → player mapping
 const socketPlayerMap = new Map<string, { gameId: string; playerId: string }>();
 
+// ─── Rate limiting ──────────────────────────────────────────────────────────
+
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max actions per window
+
+function isRateLimited(socketId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(socketId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(socketId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+// ─── Input validation ───────────────────────────────────────────────────────
+
+const MAX_NAME_LENGTH = 20;
+
+function sanitizeName(name: unknown): string | null {
+  if (typeof name !== "string") return null;
+  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
+  if (trimmed.length === 0) return null;
+  // Allow letters, numbers, spaces, hyphens, underscores only
+  if (!/^[a-zA-Z0-9 _-]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function isValidGameId(id: unknown): boolean {
+  if (typeof id !== "string") return false;
+  // UUID v4 format
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
 // ─── REST endpoint (health) ─────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", games: games.size });
+  res.json({ status: "ok" });
 });
 
 // ─── Socket.IO handlers ─────────────────────────────────────────────────────
@@ -57,8 +95,19 @@ io.on("connection", (socket) => {
 
   // ── Create Game ───────────────────────────────────────────────────────────
   socket.on("game:create", ({ playerName }, callback) => {
+    if (isRateLimited(socket.id)) {
+      callback({ gameId: "" });
+      return;
+    }
+
+    const name = sanitizeName(playerName);
+    if (!name) {
+      callback({ gameId: "" });
+      return;
+    }
+
     const game = createGame();
-    const player = addPlayer(game, playerName)!;
+    const player = addPlayer(game, name)!;
 
     games.set(game.id, game);
     saveGame(game);
@@ -72,6 +121,22 @@ io.on("connection", (socket) => {
 
   // ── Join Game ─────────────────────────────────────────────────────────────
   socket.on("game:join", ({ gameId, playerName }, callback) => {
+    if (isRateLimited(socket.id)) {
+      callback({ success: false, error: "Too many requests" });
+      return;
+    }
+
+    if (!isValidGameId(gameId)) {
+      callback({ success: false, error: "Invalid game ID" });
+      return;
+    }
+
+    const name = sanitizeName(playerName);
+    if (!name) {
+      callback({ success: false, error: "Invalid name (letters, numbers, spaces, max 20 chars)" });
+      return;
+    }
+
     const game = games.get(gameId) || loadGame(gameId);
     if (!game) {
       callback({ success: false, error: "Game not found" });
@@ -83,7 +148,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const player = addPlayer(game, playerName);
+    const player = addPlayer(game, name);
     if (!player) {
       callback({ success: false, error: "Game is full (max 4 players)" });
       return;
@@ -126,6 +191,8 @@ io.on("connection", (socket) => {
 
   // ── Roll Dice ─────────────────────────────────────────────────────────────
   socket.on("turn:roll", () => {
+    if (isRateLimited(socket.id)) return;
+
     const ctx = getPlayerContext(socket.id);
     if (!ctx) return;
     const { game, player } = ctx;
@@ -268,6 +335,7 @@ io.on("connection", (socket) => {
       }
       socketPlayerMap.delete(socket.id);
     }
+    rateLimits.delete(socket.id);
     console.log(`Socket disconnected: ${socket.id}`);
   });
 
