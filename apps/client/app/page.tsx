@@ -22,13 +22,16 @@ export default function Home() {
   const [error, setError] = useState("");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [isLoading, setIsLoading] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [hasInvite, setHasInvite] = useState(false);
 
-  // Read game code from URL and restore player ID from session on mount
+  // Read game code from URL and restore session on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gameParam = params.get("game");
     if (gameParam) {
       setGameCode(gameParam);
+      setHasInvite(true);
     }
 
     // Restore playerId from sessionStorage immediately (before socket events)
@@ -60,7 +63,6 @@ export default function Home() {
     socket.on("game:player_joined", (player) => {
       setGame((prev) => {
         if (!prev) return prev;
-        // Avoid duplicates
         if (prev.players.some((p) => p.id === player.id)) return prev;
         return { ...prev, players: [...prev.players, player] };
       });
@@ -85,7 +87,6 @@ export default function Home() {
       setTimeout(() => setError(""), 3000);
     });
 
-    // Set initial status
     if (socket.connected) {
       setConnectionStatus("connected");
     }
@@ -100,6 +101,45 @@ export default function Home() {
       socket.off("turn:buy_option");
       socket.off("turn:next");
       socket.off("error");
+    };
+  }, []);
+
+  // Auto-rejoin from sessionStorage on connect
+  useEffect(() => {
+    const socket = getSocket();
+
+    const attemptRejoin = () => {
+      const stored = sessionStorage.getItem("monopoly_session");
+      if (!stored) return;
+
+      try {
+        const { gameId, playerId } = JSON.parse(stored);
+        if (!gameId || !playerId) return;
+
+        socket.emit("game:rejoin", { gameId, playerId }, (response) => {
+          if (response.success) {
+            setMyPlayerId(playerId);
+            const url = new URL(window.location.href);
+            url.searchParams.set("game", gameId);
+            window.history.replaceState({}, "", url.toString());
+          } else {
+            // Session is stale, clear it
+            sessionStorage.removeItem("monopoly_session");
+          }
+        });
+      } catch {
+        sessionStorage.removeItem("monopoly_session");
+      }
+    };
+
+    if (socket.connected) {
+      attemptRejoin();
+    } else {
+      socket.once("connect", attemptRejoin);
+    }
+
+    return () => {
+      socket.off("connect", attemptRejoin);
     };
   }, []);
 
@@ -150,44 +190,64 @@ export default function Home() {
     }
   }, [playerName, gameCode]);
 
-  // Auto-rejoin from sessionStorage on connect
-  useEffect(() => {
+  const handleLeaveGame = useCallback(() => {
+    sessionStorage.removeItem("monopoly_session");
+    setGame(null);
+    setMyPlayerId(null);
+    setScreen("home");
+    setShowLeaveConfirm(false);
+    setBuyOption(null);
+    setHasRolled(false);
+    setGameCode("");
+    setHasInvite(false);
+    // Remove ?game from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("game");
+    window.history.replaceState({}, "", url.toString());
+    // Disconnect and reconnect to leave the socket room
     const socket = getSocket();
-
-    const attemptRejoin = () => {
-      const stored = sessionStorage.getItem("monopoly_session");
-      if (!stored) return;
-
-      try {
-        const { gameId, playerId } = JSON.parse(stored);
-        if (!gameId || !playerId) return;
-
-        socket.emit("game:rejoin", { gameId, playerId }, (response) => {
-          if (response.success) {
-            setMyPlayerId(playerId);
-            const url = new URL(window.location.href);
-            url.searchParams.set("game", gameId);
-            window.history.replaceState({}, "", url.toString());
-          } else {
-            // Session is stale, clear it
-            sessionStorage.removeItem("monopoly_session");
-          }
-        });
-      } catch {
-        sessionStorage.removeItem("monopoly_session");
-      }
-    };
-
-    if (socket.connected) {
-      attemptRejoin();
-    } else {
-      socket.once("connect", attemptRejoin);
-    }
-
-    return () => {
-      socket.off("connect", attemptRejoin);
-    };
+    socket.disconnect();
+    socket.connect();
   }, []);
+
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem("monopoly_session");
+    setPlayerName("");
+    setMyPlayerId(null);
+    setGame(null);
+    setScreen("home");
+    setGameCode("");
+    setHasInvite(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("game");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
+  // ─── Leave Confirmation Dialog ──────────────────────────────────────────────
+  const LeaveConfirmDialog = () => (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full space-y-4">
+        <h3 className="text-lg font-bold text-white">Leave Game?</h3>
+        <p className="text-gray-400 text-sm">
+          Are you sure you want to leave? You won&apos;t be able to rejoin this game.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowLeaveConfirm(false)}
+            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleLeaveGame}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
+          >
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // ─── Home Screen ────────────────────────────────────────────────────────────
   if (screen === "home") {
@@ -241,40 +301,72 @@ export default function Home() {
             maxLength={20}
           />
 
-          <button
-            onClick={handleCreate}
-            disabled={!playerName.trim() || buttonsDisabled}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded text-lg"
-          >
-            {isLoading ? "Creating…" : "Create New Game"}
-          </button>
+          {/* Invite link flow: Join is primary */}
+          {hasInvite ? (
+            <>
+              <button
+                onClick={handleJoin}
+                disabled={!playerName.trim() || !gameCode.trim() || buttonsDisabled}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded text-lg"
+              >
+                {isLoading ? "Joining…" : `Join Game ${gameCode}`}
+              </button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-gray-900 px-2 text-gray-500">or join existing</span>
-            </div>
-          </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-gray-900 px-2 text-gray-500">or</span>
+                </div>
+              </div>
 
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Game code"
-              value={gameCode}
-              onChange={(e) => setGameCode(e.target.value)}
-              className="flex-1 bg-gray-800 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 font-mono"
-              maxLength={8}
-            />
-            <button
-              onClick={handleJoin}
-              disabled={!playerName.trim() || !gameCode.trim() || buttonsDisabled}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded"
-            >
-              {isLoading ? "…" : "Join"}
-            </button>
-          </div>
+              <button
+                onClick={handleCreate}
+                disabled={!playerName.trim() || buttonsDisabled}
+                className="w-full bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 text-gray-300 font-medium py-2 px-6 rounded text-sm"
+              >
+                Create New Game Instead
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleCreate}
+                disabled={!playerName.trim() || buttonsDisabled}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded text-lg"
+              >
+                {isLoading ? "Creating…" : "Create New Game"}
+              </button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-gray-900 px-2 text-gray-500">or join existing</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Game code"
+                  value={gameCode}
+                  onChange={(e) => setGameCode(e.target.value)}
+                  className="flex-1 bg-gray-800 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 font-mono"
+                  maxLength={8}
+                />
+                <button
+                  onClick={handleJoin}
+                  disabled={!playerName.trim() || !gameCode.trim() || buttonsDisabled}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded"
+                >
+                  {isLoading ? "…" : "Join"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </main>
     );
@@ -286,7 +378,16 @@ export default function Home() {
   if (screen === "lobby") {
     return (
       <main className="min-h-screen flex items-center justify-center p-4">
-        <Lobby game={game} myPlayerId={myPlayerId} />
+        {showLeaveConfirm && <LeaveConfirmDialog />}
+        <div className="space-y-4">
+          <Lobby game={game} myPlayerId={myPlayerId} />
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            className="w-full text-gray-500 hover:text-red-400 text-sm underline"
+          >
+            Leave Game
+          </button>
+        </div>
       </main>
     );
   }
@@ -294,6 +395,8 @@ export default function Home() {
   // ─── Game Screen ──────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen p-2 lg:p-4">
+      {showLeaveConfirm && <LeaveConfirmDialog />}
+
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-900/90 border border-red-600 rounded px-4 py-2 text-sm text-red-300 z-50">
           {error}
@@ -318,6 +421,12 @@ export default function Home() {
           />
           <PlayerPanel game={game} myPlayerId={myPlayerId} />
           <GameLog game={game} />
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            className="w-full text-gray-500 hover:text-red-400 text-xs underline"
+          >
+            Leave Game
+          </button>
         </div>
       </div>
     </main>
