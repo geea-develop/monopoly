@@ -9,6 +9,8 @@ import GameLog from "@/components/GameLog";
 import Actions from "@/components/Actions";
 import Lobby from "@/components/Lobby";
 import ToastContainer, { showToast } from "@/components/Toast";
+import WinScreen from "@/components/WinScreen";
+import { SFX } from "@/lib/sounds";
 
 type Screen = "home" | "lobby" | "game";
 
@@ -28,6 +30,8 @@ export default function Home() {
   const [hasInvite, setHasInvite] = useState(false);
   const gameRef = useRef<GameState | null>(null);
   gameRef.current = game;
+  const myPlayerIdRef = useRef<string | null>(null);
+  myPlayerIdRef.current = myPlayerId;
 
   // Read game code from URL and restore session on mount
   useEffect(() => {
@@ -88,6 +92,11 @@ export default function Home() {
       setHasRolled(false);
       setDiceRolling(false);
       setBuyOption(null);
+      // Play sound if it's now my turn
+      const g = gameRef.current;
+      if (g && g.players[g.currentPlayerIndex]?.id === myPlayerIdRef.current) {
+        SFX.yourTurn();
+      }
     });
 
     socket.on("error", (data) => {
@@ -100,37 +109,44 @@ export default function Home() {
       const payer = gameRef.current?.players.find((p) => p.id === data.payerId);
       const owner = gameRef.current?.players.find((p) => p.id === data.ownerId);
       showToast(`${payer?.name ?? "?"} paid $${data.amount} rent to ${owner?.name ?? "?"}`, "money");
+      SFX.rent();
     });
 
     socket.on("turn:bought", (data) => {
       const buyer = gameRef.current?.players.find((p) => p.id === data.playerId);
       const tileName = BOARD[data.tileIndex]?.name ?? "property";
       showToast(`${buyer?.name ?? "?"} bought ${tileName}`, "success");
+      SFX.buy();
     });
 
     socket.on("turn:tax_paid", (data) => {
       const player = gameRef.current?.players.find((p) => p.id === data.playerId);
       showToast(`${player?.name ?? "?"} paid $${data.amount} tax`, "danger");
+      SFX.rent();
     });
 
     socket.on("turn:jail", (data) => {
       const player = gameRef.current?.players.find((p) => p.id === data.playerId);
       showToast(`${player?.name ?? "?"} was sent to Jail! 🔒`, "danger");
+      SFX.jail();
     });
 
     socket.on("turn:card", (data) => {
       showToast(`🃏 ${data.cardText}`, "info", 4000);
+      SFX.card();
     });
 
     socket.on("turn:bankrupt", (data) => {
       const player = gameRef.current?.players.find((p) => p.id === data.playerId);
       showToast(`💀 ${player?.name ?? "?"} went bankrupt!`, "danger", 5000);
+      SFX.lose();
     });
 
     socket.on("turn:rolled", (data) => {
       const player = gameRef.current?.players.find((p) => p.id === data.playerId);
       if (data.passedGo) {
         showToast(`${player?.name ?? "?"} passed Go — collected $200`, "money");
+        SFX.passGo();
       }
     });
 
@@ -450,6 +466,23 @@ export default function Home() {
   return (
     <main className="min-h-screen p-2 lg:p-4">
       {showLeaveConfirm && <LeaveConfirmDialog />}
+      {game.phase === GamePhase.Finished && (
+        <WinScreen
+          game={game}
+          myPlayerId={myPlayerId}
+          onPlayAgain={() => {
+            sessionStorage.removeItem("monopoly_session");
+            setGame(null);
+            setScreen("home");
+            setMyPlayerId(null);
+            setHasRolled(false);
+            setBuyOption(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete("game");
+            window.history.replaceState({}, "", url.toString());
+          }}
+        />
+      )}
       <ToastContainer />
 
       {error && (
@@ -472,7 +505,7 @@ export default function Home() {
             buyOption={buyOption}
             onClearBuyOption={() => setBuyOption(null)}
             hasRolled={hasRolled}
-            onRolled={() => { setHasRolled(true); setDiceRolling(true); }}
+            onRolled={() => { setHasRolled(true); setDiceRolling(true); SFX.diceRoll(); }}
           />
           <PlayerPanel game={game} myPlayerId={myPlayerId} />
           <GameLog game={game} />
