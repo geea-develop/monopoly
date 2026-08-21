@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { GameState, GamePhase } from "@monopoly/shared";
-import { getSocket } from "@/lib/socket";
+import { getSocket, emitWithTimeout, ConnectionStatus } from "@/lib/socket";
 import Board from "@/components/Board";
 import PlayerPanel from "@/components/PlayerPanel";
 import GameLog from "@/components/GameLog";
@@ -20,9 +20,15 @@ export default function Home() {
   const [buyOption, setBuyOption] = useState<{ tileIndex: number; price: number } | null>(null);
   const [hasRolled, setHasRolled] = useState(false);
   const [error, setError] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const socket = getSocket();
+
+    socket.on("connect", () => setConnectionStatus("connected"));
+    socket.on("disconnect", () => setConnectionStatus("disconnected"));
+    socket.on("connect_error", () => setConnectionStatus("disconnected"));
 
     socket.on("game:state", (state) => {
       setGame(state);
@@ -52,7 +58,15 @@ export default function Home() {
       setTimeout(() => setError(""), 3000);
     });
 
+    // Set initial status
+    if (socket.connected) {
+      setConnectionStatus("connected");
+    }
+
     return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
       socket.off("game:state");
       socket.off("game:started");
       socket.off("turn:buy_option");
@@ -61,26 +75,42 @@ export default function Home() {
     };
   }, []);
 
-  const handleCreate = useCallback(() => {
+  const handleCreate = useCallback(async () => {
     if (!playerName.trim()) return;
-    const socket = getSocket();
-    socket.emit("game:create", { playerName: playerName.trim() }, (response) => {
-      // myPlayerId will be set from game:state event
-      setGame((prev) => {
-        if (prev) setMyPlayerId(prev.players[prev.players.length - 1]?.id ?? null);
-        return prev;
-      });
-    });
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await emitWithTimeout<{ gameId: string }>(
+        "game:create",
+        { playerName: playerName.trim() }
+      );
+      if (!response.gameId) {
+        setError("Failed to create game — invalid name or server error");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to create game");
+    } finally {
+      setIsLoading(false);
+    }
   }, [playerName]);
 
-  const handleJoin = useCallback(() => {
+  const handleJoin = useCallback(async () => {
     if (!playerName.trim() || !gameCode.trim()) return;
-    const socket = getSocket();
-    socket.emit("game:join", { gameId: gameCode.trim(), playerName: playerName.trim() }, (response) => {
-      if (!response.success) {
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await emitWithTimeout<{ success?: boolean; error?: string }>(
+        "game:join",
+        { gameId: gameCode.trim(), playerName: playerName.trim() }
+      );
+      if (response && !response.success) {
         setError(response.error || "Failed to join");
       }
-    });
+    } catch (err: any) {
+      setError(err.message || "Failed to join game");
+    } finally {
+      setIsLoading(false);
+    }
   }, [playerName, gameCode]);
 
   // Derive myPlayerId from game state once we have it
@@ -94,11 +124,40 @@ export default function Home() {
 
   // ─── Home Screen ────────────────────────────────────────────────────────────
   if (screen === "home") {
+    const isDisconnected = connectionStatus !== "connected";
+    const buttonsDisabled = isDisconnected || isLoading;
+
     return (
       <main className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-sm w-full space-y-6">
           <h1 className="text-4xl font-bold text-center">🎩 Monopoly</h1>
           <p className="text-center text-gray-400">Multiplayer board game — up to 4 players</p>
+
+          {/* Connection status */}
+          <div className="flex items-center justify-center gap-2 text-sm">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                connectionStatus === "connected"
+                  ? "bg-green-500"
+                  : connectionStatus === "connecting"
+                  ? "bg-yellow-500 animate-pulse"
+                  : "bg-red-500"
+              }`}
+            />
+            <span className={
+              connectionStatus === "connected"
+                ? "text-green-400"
+                : connectionStatus === "connecting"
+                ? "text-yellow-400"
+                : "text-red-400"
+            }>
+              {connectionStatus === "connected"
+                ? "Connected"
+                : connectionStatus === "connecting"
+                ? "Connecting to server…"
+                : "Disconnected — retrying…"}
+            </span>
+          </div>
 
           {error && (
             <div className="bg-red-900/50 border border-red-600 rounded p-2 text-sm text-red-300 text-center">
@@ -117,10 +176,10 @@ export default function Home() {
 
           <button
             onClick={handleCreate}
-            disabled={!playerName.trim()}
+            disabled={!playerName.trim() || buttonsDisabled}
             className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded text-lg"
           >
-            Create New Game
+            {isLoading ? "Creating…" : "Create New Game"}
           </button>
 
           <div className="relative">
@@ -143,10 +202,10 @@ export default function Home() {
             />
             <button
               onClick={handleJoin}
-              disabled={!playerName.trim() || !gameCode.trim()}
+              disabled={!playerName.trim() || !gameCode.trim() || buttonsDisabled}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded"
             >
-              Join
+              {isLoading ? "…" : "Join"}
             </button>
           </div>
         </div>
