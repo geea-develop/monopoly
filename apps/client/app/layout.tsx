@@ -23,7 +23,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const buildId = process.env.NEXT_PUBLIC_BUILD_ID?.slice(0, 7) || "dev";
+  const buildId = process.env.NEXT_PUBLIC_BUILD_ID?.slice(0, 7) || "local";
 
   return (
     <html lang="en">
@@ -37,17 +37,18 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <footer className="fixed bottom-2 left-0 right-0 flex justify-center gap-3 text-xs text-gray-600">
-          <span>v.{buildId}</span>
-          <span>·</span>
+        <footer className="fixed bottom-4 left-0 right-0 flex flex-col items-center gap-2 z-10">
           <a
-            href="https://github.com/geea-develop/monopoly/issues/new"
+            href="https://github.com/geea-develop/monopoly/issues/new?template=bug_report.yml"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-gray-400 underline"
+            className="text-gray-500 hover:text-gray-300 text-xs underline"
           >
-            Report a bug
+            Report Bug
           </a>
+          <span className="text-gray-700 text-[10px]">
+            build {buildId} 🎩
+          </span>
         </footer>
         <script
           type="module"
