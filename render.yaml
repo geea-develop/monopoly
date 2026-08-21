@@ -10,6 +10,8 @@ services:
       npm run build:server
     startCommand: node apps/server/dist/index.js
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
       - key: NODE_ENV
         value: production
       - key: PORT
