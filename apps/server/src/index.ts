@@ -94,7 +94,7 @@ io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
   // ── Create Game ───────────────────────────────────────────────────────────
-  socket.on("game:create", ({ playerName }, callback) => {
+  socket.on("game:create", async ({ playerName }, callback) => {
     if (isRateLimited(socket.id)) {
       callback({ gameId: "", playerId: "" });
       return;
@@ -110,7 +110,7 @@ io.on("connection", (socket) => {
     const player = addPlayer(game, name)!;
 
     games.set(game.id, game);
-    saveGame(game);
+    await saveGame(game);
 
     socketPlayerMap.set(socket.id, { gameId: game.id, playerId: player.id });
     socket.join(game.id);
@@ -120,7 +120,7 @@ io.on("connection", (socket) => {
   });
 
   // ── Join Game ─────────────────────────────────────────────────────────────
-  socket.on("game:join", ({ gameId, playerName }, callback) => {
+  socket.on("game:join", async ({ gameId, playerName }, callback) => {
     if (isRateLimited(socket.id)) {
       callback({ success: false, error: "Too many requests" });
       return;
@@ -137,7 +137,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const game = games.get(gameId) || loadGame(gameId);
+    const game = games.get(gameId) || await loadGame(gameId);
     if (!game) {
       callback({ success: false, error: "Game not found" });
       return;
@@ -155,7 +155,7 @@ io.on("connection", (socket) => {
     }
 
     games.set(game.id, game);
-    saveGame(game);
+    await saveGame(game);
 
     socketPlayerMap.set(socket.id, { gameId: game.id, playerId: player.id });
     socket.join(game.id);
@@ -166,7 +166,7 @@ io.on("connection", (socket) => {
   });
 
   // ── Rejoin Game (after refresh/disconnect) ────────────────────────────────
-  socket.on("game:rejoin", ({ gameId, playerId }, callback) => {
+  socket.on("game:rejoin", async ({ gameId, playerId }, callback) => {
     if (isRateLimited(socket.id)) return;
 
     if (!isValidGameId(gameId)) {
@@ -179,11 +179,14 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const game = games.get(gameId) || loadGame(gameId);
+    const game = games.get(gameId) || await loadGame(gameId);
     if (!game) {
       callback({ success: false, error: "Game not found" });
       return;
     }
+
+    // Put it back in the hot cache if loaded from Redis
+    games.set(game.id, game);
 
     const player = game.players.find((p) => p.id === playerId);
     if (!player) {
@@ -200,7 +203,7 @@ io.on("connection", (socket) => {
   });
 
   // ── Start Game ────────────────────────────────────────────────────────────
-  socket.on("game:start", (callback) => {
+  socket.on("game:start", async (callback) => {
     const mapping = socketPlayerMap.get(socket.id);
     if (!mapping) { callback({ success: false, error: "Not in a game" }); return; }
 
@@ -217,14 +220,14 @@ io.on("connection", (socket) => {
       return;
     }
 
-    saveGame(game);
+    await saveGame(game);
     callback({ success: true });
     io.to(game.id).emit("game:started");
     io.to(game.id).emit("game:state", game);
   });
 
   // ── Roll Dice ─────────────────────────────────────────────────────────────
-  socket.on("turn:roll", () => {
+  socket.on("turn:roll", async () => {
     if (isRateLimited(socket.id)) return;
 
     const ctx = getPlayerContext(socket.id);
@@ -255,12 +258,12 @@ io.on("connection", (socket) => {
     const landing = processLanding(game, player);
     emitLandingResult(game, player, landing);
 
-    saveGame(game);
+    await saveGame(game);
     io.to(game.id).emit("game:state", game);
   });
 
   // ── Buy Property ──────────────────────────────────────────────────────────
-  socket.on("turn:buy", () => {
+  socket.on("turn:buy", async () => {
     const ctx = getPlayerContext(socket.id);
     if (!ctx) return;
     const { game, player } = ctx;
@@ -272,7 +275,7 @@ io.on("connection", (socket) => {
 
     if (buyProperty(game, player)) {
       io.to(game.id).emit("turn:bought", { playerId: player.id, tileIndex: player.position });
-      saveGame(game);
+      await saveGame(game);
       io.to(game.id).emit("game:state", game);
     }
   });
@@ -283,7 +286,7 @@ io.on("connection", (socket) => {
   });
 
   // ── End Turn ──────────────────────────────────────────────────────────────
-  socket.on("turn:end", () => {
+  socket.on("turn:end", async () => {
     const ctx = getPlayerContext(socket.id);
     if (!ctx) return;
     const { game, player } = ctx;
@@ -294,7 +297,7 @@ io.on("connection", (socket) => {
     }
 
     const result = advanceTurn(game);
-    saveGame(game);
+    await saveGame(game);
 
     if (result.gameOver) {
       io.to(game.id).emit("game:ended", { winnerId: result.winnerId!, reason: result.reason! });
@@ -306,7 +309,7 @@ io.on("connection", (socket) => {
   });
 
   // ── Jail: Pay Fee ─────────────────────────────────────────────────────────
-  socket.on("jail:pay", () => {
+  socket.on("jail:pay", async () => {
     const ctx = getPlayerContext(socket.id);
     if (!ctx) return;
     const { game, player } = ctx;
@@ -314,13 +317,13 @@ io.on("connection", (socket) => {
     if (getCurrentPlayer(game).id !== player.id) return;
 
     if (payJailFee(game, player)) {
-      saveGame(game);
+      await saveGame(game);
       io.to(game.id).emit("game:state", game);
     }
   });
 
   // ── Jail: Roll Doubles ────────────────────────────────────────────────────
-  socket.on("jail:roll", () => {
+  socket.on("jail:roll", async () => {
     const ctx = getPlayerContext(socket.id);
     if (!ctx) return;
     const { game, player } = ctx;
@@ -349,7 +352,7 @@ io.on("connection", (socket) => {
       emitLandingResult(game, player, landing);
     }
 
-    saveGame(game);
+    await saveGame(game);
     io.to(game.id).emit("game:state", game);
   });
 

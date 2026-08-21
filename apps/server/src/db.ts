@@ -1,49 +1,41 @@
+import { Redis } from "@upstash/redis";
 import { GameState } from "@monopoly/shared";
 
-const MAX_GAMES = 5;
+const GAME_TTL = 60 * 60 * 2; // 2 hours — auto-expire stale games
+const KEY_PREFIX = "game:";
 
-interface CacheEntry {
-  state: GameState;
-  lastAccessed: number;
-}
-
-const cache = new Map<string, CacheEntry>();
-
-function evictOldest(): void {
-  if (cache.size <= MAX_GAMES) return;
-
-  let oldestKey: string | null = null;
-  let oldestTime = Infinity;
-
-  for (const [key, entry] of cache) {
-    if (entry.lastAccessed < oldestTime) {
-      oldestTime = entry.lastAccessed;
-      oldestKey = key;
-    }
-  }
-
-  if (oldestKey) {
-    cache.delete(oldestKey);
-    console.log(`Evicted oldest game: ${oldestKey}`);
-  }
-}
+let redis: Redis;
 
 export function initDb(): void {
-  // No-op for in-memory store
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    console.warn("⚠️  UPSTASH_REDIS_REST_URL or TOKEN not set — using in-memory fallback");
+    return;
+  }
+
+  redis = new Redis({ url, token });
+  console.log("✓ Connected to Upstash Redis");
 }
 
-export function saveGame(game: GameState): void {
-  cache.set(game.id, { state: game, lastAccessed: Date.now() });
-  evictOldest();
+export async function saveGame(game: GameState): Promise<void> {
+  if (!redis) return;
+  await redis.set(`${KEY_PREFIX}${game.id}`, JSON.stringify(game), { ex: GAME_TTL });
 }
 
-export function loadGame(id: string): GameState | null {
-  const entry = cache.get(id);
-  if (!entry) return null;
-  entry.lastAccessed = Date.now();
-  return entry.state;
+export async function loadGame(id: string): Promise<GameState | null> {
+  if (!redis) return null;
+  const data = await redis.get<string>(`${KEY_PREFIX}${id}`);
+  if (!data) return null;
+  // Upstash auto-parses JSON if stored as string, but let's be safe
+  if (typeof data === "string") {
+    return JSON.parse(data) as GameState;
+  }
+  return data as unknown as GameState;
 }
 
-export function deleteGame(id: string): void {
-  cache.delete(id);
+export async function deleteGame(id: string): Promise<void> {
+  if (!redis) return;
+  await redis.del(`${KEY_PREFIX}${id}`);
 }

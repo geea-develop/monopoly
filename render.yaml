@@ -18,3 +18,7 @@ services:
         value: "3001"
       - key: CLIENT_URL
         value: https://geea-develop.github.io
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
