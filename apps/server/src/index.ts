@@ -226,6 +226,35 @@ io.on("connection", (socket) => {
     io.to(game.id).emit("game:state", game);
   });
 
+  // ── Auto-end turn helper ──────────────────────────────────────────────────
+  const autoEndTimers = new Map<string, NodeJS.Timeout>();
+
+  async function autoEndTurn(gameId: string, playerId: string, delayMs = 2000) {
+    // Clear any existing timer for this game
+    const existing = autoEndTimers.get(gameId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      autoEndTimers.delete(gameId);
+      const game = games.get(gameId);
+      if (!game || game.phase !== GamePhase.Playing) return;
+      if (getCurrentPlayer(game).id !== playerId) return;
+
+      const result = advanceTurn(game);
+      await saveGame(game);
+
+      if (result.gameOver) {
+        io.to(game.id).emit("game:ended", { winnerId: result.winnerId!, reason: result.reason! });
+      } else {
+        io.to(game.id).emit("turn:next", { currentPlayerIndex: game.currentPlayerIndex, turn: game.turn });
+      }
+
+      io.to(game.id).emit("game:state", game);
+    }, delayMs);
+
+    autoEndTimers.set(gameId, timer);
+  }
+
   // ── Roll Dice ─────────────────────────────────────────────────────────────
   socket.on("turn:roll", async () => {
     if (isRateLimited(socket.id)) return;
@@ -260,6 +289,11 @@ io.on("connection", (socket) => {
 
     await saveGame(game);
     io.to(game.id).emit("game:state", game);
+
+    // Auto-end turn if no decision needed
+    if (landing.type !== "buy_option") {
+      autoEndTurn(game.id, player.id, 2000);
+    }
   });
 
   // ── Buy Property ──────────────────────────────────────────────────────────
@@ -277,12 +311,16 @@ io.on("connection", (socket) => {
       io.to(game.id).emit("turn:bought", { playerId: player.id, tileIndex: player.position });
       await saveGame(game);
       io.to(game.id).emit("game:state", game);
+      autoEndTurn(game.id, player.id, 2000);
     }
   });
 
   // ── Skip Buy ──────────────────────────────────────────────────────────────
-  socket.on("turn:skip", () => {
-    // Nothing to do server-side, player just declines to buy
+  socket.on("turn:skip", async () => {
+    const ctx = getPlayerContext(socket.id);
+    if (!ctx) return;
+    const { game, player } = ctx;
+    autoEndTurn(game.id, player.id, 1500);
   });
 
   // ── End Turn ──────────────────────────────────────────────────────────────
@@ -294,6 +332,13 @@ io.on("connection", (socket) => {
     if (getCurrentPlayer(game).id !== player.id) {
       socket.emit("error", { message: "Not your turn" });
       return;
+    }
+
+    // Clear auto-end timer since player ended manually
+    const existing = autoEndTimers.get(game.id);
+    if (existing) {
+      clearTimeout(existing);
+      autoEndTimers.delete(game.id);
     }
 
     const result = advanceTurn(game);
@@ -319,6 +364,7 @@ io.on("connection", (socket) => {
     if (payJailFee(game, player)) {
       await saveGame(game);
       io.to(game.id).emit("game:state", game);
+      autoEndTurn(game.id, player.id, 2000);
     }
   });
 
@@ -350,10 +396,20 @@ io.on("connection", (socket) => {
       });
       const landing = processLanding(game, player);
       emitLandingResult(game, player, landing);
-    }
 
-    await saveGame(game);
-    io.to(game.id).emit("game:state", game);
+      await saveGame(game);
+      io.to(game.id).emit("game:state", game);
+
+      // Auto-end unless there's a buy decision
+      if (landing.type !== "buy_option") {
+        autoEndTurn(game.id, player.id, 2000);
+      }
+    } else {
+      await saveGame(game);
+      io.to(game.id).emit("game:state", game);
+      // Stayed in jail or went bankrupt — auto-end
+      autoEndTurn(game.id, player.id, 2000);
+    }
   });
 
   // ── Disconnect ────────────────────────────────────────────────────────────

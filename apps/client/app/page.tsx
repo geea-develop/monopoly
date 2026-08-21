@@ -76,11 +76,13 @@ export default function Home() {
         if (prev.players.some((p) => p.id === player.id)) return prev;
         return { ...prev, players: [...prev.players, player] };
       });
+      SFX.playerJoined();
     });
 
     socket.on("game:started", () => {
       setScreen("game");
       setHasRolled(false);
+      SFX.gameStart();
     });
 
     socket.on("turn:buy_option", (data) => {

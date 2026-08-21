@@ -47,11 +47,15 @@ function playNotes(notes: { freq: number; delay: number; duration: number; type?
 
 export const SFX = {
   diceRoll() {
-    // Rapid clicking sounds like dice tumbling
-    for (let i = 0; i < 6; i++) {
+    // Slot machine reel — subtle clicks that decelerate
+    const clicks = 12;
+    for (let i = 0; i < clicks; i++) {
+      const delay = i < 6
+        ? i * 70
+        : 420 + (i - 6) * (90 + (i - 6) * 30);
       setTimeout(() => {
-        playTone(200 + Math.random() * 400, 0.05, "square", 0.1);
-      }, i * 50);
+        playTone(900 + (i % 2) * 200, 0.03, "sine", 0.1 - i * 0.005);
+      }, delay);
     }
   },
 
@@ -126,6 +130,25 @@ export const SFX = {
     playNotes([
       { freq: 600, delay: 0, duration: 0.08, type: "square", volume: 0.1 },
       { freq: 900, delay: 80, duration: 0.12, type: "square", volume: 0.15 },
+    ]);
+  },
+
+  gameStart() {
+    // Energetic countdown into launch
+    playNotes([
+      { freq: 440, delay: 0, duration: 0.15, type: "square", volume: 0.15 },
+      { freq: 550, delay: 150, duration: 0.15, type: "square", volume: 0.15 },
+      { freq: 660, delay: 300, duration: 0.15, type: "square", volume: 0.18 },
+      { freq: 880, delay: 450, duration: 0.3, type: "square", volume: 0.2 },
+      { freq: 1100, delay: 650, duration: 0.4, type: "triangle", volume: 0.25 },
+    ]);
+  },
+
+  playerJoined() {
+    // Friendly pop-in chime
+    playNotes([
+      { freq: 660, delay: 0, duration: 0.1, type: "sine", volume: 0.15 },
+      { freq: 880, delay: 80, duration: 0.15, type: "sine", volume: 0.2 },
     ]);
   },
 };
