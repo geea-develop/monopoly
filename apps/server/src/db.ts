@@ -1,6 +1,6 @@
 import { GameState } from "@monopoly/shared";
 
-const MAX_GAMES = 50;
+const MAX_GAMES = 5;
 
 interface CacheEntry {
   state: GameState;
