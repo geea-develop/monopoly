@@ -19,24 +19,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
-      - run: pnpm --filter @monopoly/shared build
+      - run: npm run build:shared
 
       - name: Build client
         env:
           NEXT_PUBLIC_BASE_PATH: /monopoly
           NEXT_PUBLIC_SERVER_URL: https://monopoly-server.onrender.com
-        run: pnpm --filter @monopoly/client build
+        run: npm run build:client
 
       - uses: actions/upload-pages-artifact@v3
         with:

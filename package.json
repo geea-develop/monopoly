@@ -3,16 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "description": "Multiplayer Monopoly web game",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "pnpm --parallel -r run dev",
-    "dev:server": "pnpm --filter @monopoly/server dev",
-    "dev:client": "pnpm --filter @monopoly/client dev",
-    "build": "pnpm -r run build",
-    "build:shared": "pnpm --filter @monopoly/shared build",
-    "build:server": "pnpm --filter @monopoly/server build",
-    "build:client": "pnpm --filter @monopoly/client build"
+    "dev": "npm run dev:server & npm run dev:client",
+    "dev:server": "npm run dev --workspace=@monopoly/server",
+    "dev:client": "npm run dev --workspace=@monopoly/client",
+    "build": "npm run build --workspace=@monopoly/shared && npm run build --workspace=@monopoly/server && npm run build --workspace=@monopoly/client",
+    "build:shared": "npm run build --workspace=@monopoly/shared",
+    "build:server": "npm run build --workspace=@monopoly/server",
+    "build:client": "npm run build --workspace=@monopoly/client"
   },
   "engines": {
     "node": ">=20"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
   }
 }

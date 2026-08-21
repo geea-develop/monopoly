@@ -5,10 +5,9 @@ services:
     region: frankfurt
     plan: free
     buildCommand: |
-      npm install -g pnpm &&
-      pnpm install --frozen-lockfile &&
-      pnpm --filter @monopoly/shared build &&
-      pnpm --filter @monopoly/server build
+      npm ci &&
+      npm run build:shared &&
+      npm run build:server
     startCommand: node apps/server/dist/index.js
     envVars:
       - key: NODE_ENV
