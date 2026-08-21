@@ -23,12 +23,21 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Read game code from URL on mount (for shareable links)
+  // Read game code from URL and restore player ID from session on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gameParam = params.get("game");
     if (gameParam) {
       setGameCode(gameParam);
+    }
+
+    // Restore playerId from sessionStorage immediately (before socket events)
+    const stored = sessionStorage.getItem("monopoly_session");
+    if (stored) {
+      try {
+        const { playerId } = JSON.parse(stored);
+        if (playerId) setMyPlayerId(playerId);
+      } catch { /* ignore */ }
     }
   }, []);
 
@@ -46,6 +55,15 @@ export default function Home() {
       } else if (state.phase === GamePhase.Playing || state.phase === GamePhase.Finished) {
         setScreen("game");
       }
+    });
+
+    socket.on("game:player_joined", (player) => {
+      setGame((prev) => {
+        if (!prev) return prev;
+        // Avoid duplicates
+        if (prev.players.some((p) => p.id === player.id)) return prev;
+        return { ...prev, players: [...prev.players, player] };
+      });
     });
 
     socket.on("game:started", () => {
@@ -77,6 +95,7 @@ export default function Home() {
       socket.off("disconnect");
       socket.off("connect_error");
       socket.off("game:state");
+      socket.off("game:player_joined");
       socket.off("game:started");
       socket.off("turn:buy_option");
       socket.off("turn:next");
