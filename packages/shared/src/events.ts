@@ -4,10 +4,13 @@ import { GameState, Player } from "./types.js";
 
 export interface ClientToServerEvents {
   /** Create a new game room */
-  "game:create": (data: { playerName: string }, callback: (response: { gameId: string }) => void) => void;
+  "game:create": (data: { playerName: string }, callback: (response: { gameId: string; playerId: string }) => void) => void;
 
   /** Join an existing game */
-  "game:join": (data: { gameId: string; playerName: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
+  "game:join": (data: { gameId: string; playerName: string }, callback: (response: { success: boolean; playerId?: string; error?: string }) => void) => void;
+
+  /** Rejoin a game after disconnect/refresh */
+  "game:rejoin": (data: { gameId: string; playerId: string }, callback: (response: { success: boolean; error?: string }) => void) => void;
 
   /** Start the game (creator only, requires 2+ players) */
   "game:start": (callback: (response: { success: boolean; error?: string }) => void) => void;

@@ -96,13 +96,13 @@ io.on("connection", (socket) => {
   // ── Create Game ───────────────────────────────────────────────────────────
   socket.on("game:create", ({ playerName }, callback) => {
     if (isRateLimited(socket.id)) {
-      callback({ gameId: "" });
+      callback({ gameId: "", playerId: "" });
       return;
     }
 
     const name = sanitizeName(playerName);
     if (!name) {
-      callback({ gameId: "" });
+      callback({ gameId: "", playerId: "" });
       return;
     }
 
@@ -115,7 +115,7 @@ io.on("connection", (socket) => {
     socketPlayerMap.set(socket.id, { gameId: game.id, playerId: player.id });
     socket.join(game.id);
 
-    callback({ gameId: game.id });
+    callback({ gameId: game.id, playerId: player.id });
     socket.emit("game:state", game);
   });
 
@@ -160,8 +160,42 @@ io.on("connection", (socket) => {
     socketPlayerMap.set(socket.id, { gameId: game.id, playerId: player.id });
     socket.join(game.id);
 
-    callback({ success: true });
+    callback({ success: true, playerId: player.id });
     io.to(game.id).emit("game:player_joined", player);
+    socket.emit("game:state", game);
+  });
+
+  // ── Rejoin Game (after refresh/disconnect) ────────────────────────────────
+  socket.on("game:rejoin", ({ gameId, playerId }, callback) => {
+    if (isRateLimited(socket.id)) return;
+
+    if (!isValidGameId(gameId)) {
+      callback({ success: false, error: "Invalid game ID" });
+      return;
+    }
+
+    if (typeof playerId !== "string" || !/^[0-9a-f-]{36}$/i.test(playerId)) {
+      callback({ success: false, error: "Invalid player ID" });
+      return;
+    }
+
+    const game = games.get(gameId) || loadGame(gameId);
+    if (!game) {
+      callback({ success: false, error: "Game not found" });
+      return;
+    }
+
+    const player = game.players.find((p) => p.id === playerId);
+    if (!player) {
+      callback({ success: false, error: "Player not found in this game" });
+      return;
+    }
+
+    // Reassociate this socket with the player
+    socketPlayerMap.set(socket.id, { gameId: game.id, playerId: player.id });
+    socket.join(game.id);
+
+    callback({ success: true });
     socket.emit("game:state", game);
   });
 

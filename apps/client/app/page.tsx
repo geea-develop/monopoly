@@ -89,11 +89,13 @@ export default function Home() {
     setIsLoading(true);
     setError("");
     try {
-      const response = await emitWithTimeout<{ gameId: string }>(
+      const response = await emitWithTimeout<{ gameId: string; playerId: string }>(
         "game:create",
         { playerName: playerName.trim() }
       );
-      if (response.gameId) {
+      if (response.gameId && response.playerId) {
+        setMyPlayerId(response.playerId);
+        sessionStorage.setItem("monopoly_session", JSON.stringify({ gameId: response.gameId, playerId: response.playerId }));
         const url = new URL(window.location.href);
         url.searchParams.set("game", response.gameId);
         window.history.replaceState({}, "", url.toString());
@@ -112,11 +114,14 @@ export default function Home() {
     setIsLoading(true);
     setError("");
     try {
-      const response = await emitWithTimeout<{ success?: boolean; error?: string }>(
+      const response = await emitWithTimeout<{ success?: boolean; playerId?: string; error?: string }>(
         "game:join",
         { gameId: gameCode.trim(), playerName: playerName.trim() }
       );
-      if (response && !response.success) {
+      if (response && response.success && response.playerId) {
+        setMyPlayerId(response.playerId);
+        sessionStorage.setItem("monopoly_session", JSON.stringify({ gameId: gameCode.trim(), playerId: response.playerId }));
+      } else if (response && !response.success) {
         setError(response.error || "Failed to join");
       }
     } catch (err: any) {
@@ -126,14 +131,44 @@ export default function Home() {
     }
   }, [playerName, gameCode]);
 
-  // Derive myPlayerId from game state once we have it
+  // Auto-rejoin from sessionStorage on connect
   useEffect(() => {
-    if (game && !myPlayerId) {
-      // The last player that joined is us
-      const lastPlayer = game.players[game.players.length - 1];
-      if (lastPlayer) setMyPlayerId(lastPlayer.id);
+    const socket = getSocket();
+
+    const attemptRejoin = () => {
+      const stored = sessionStorage.getItem("monopoly_session");
+      if (!stored) return;
+
+      try {
+        const { gameId, playerId } = JSON.parse(stored);
+        if (!gameId || !playerId) return;
+
+        socket.emit("game:rejoin", { gameId, playerId }, (response) => {
+          if (response.success) {
+            setMyPlayerId(playerId);
+            const url = new URL(window.location.href);
+            url.searchParams.set("game", gameId);
+            window.history.replaceState({}, "", url.toString());
+          } else {
+            // Session is stale, clear it
+            sessionStorage.removeItem("monopoly_session");
+          }
+        });
+      } catch {
+        sessionStorage.removeItem("monopoly_session");
+      }
+    };
+
+    if (socket.connected) {
+      attemptRejoin();
+    } else {
+      socket.once("connect", attemptRejoin);
     }
-  }, [game, myPlayerId]);
+
+    return () => {
+      socket.off("connect", attemptRejoin);
+    };
+  }, []);
 
   // ─── Home Screen ────────────────────────────────────────────────────────────
   if (screen === "home") {
