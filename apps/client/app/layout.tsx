@@ -23,6 +23,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const buildId = process.env.NEXT_PUBLIC_BUILD_ID?.slice(0, 7) || "dev";
+
   return (
     <html lang="en">
       <head>
@@ -35,6 +37,18 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <footer className="fixed bottom-2 left-0 right-0 flex justify-center gap-3 text-xs text-gray-600">
+          <span>v.{buildId}</span>
+          <span>·</span>
+          <a
+            href="https://github.com/geea-develop/monopoly/issues/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-400 underline"
+          >
+            Report a bug
+          </a>
+        </footer>
         <script
           type="module"
           src="https://static.cloudflareinsights.com/beacon.min.js"
