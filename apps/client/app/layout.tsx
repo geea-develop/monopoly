@@ -24,11 +24,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const buildId = process.env.NEXT_PUBLIC_BUILD_ID?.slice(0, 7) || "local";
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3001";
+  const wsUrl = serverUrl.replace(/^http/, "ws");
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://static.cloudflareinsights.com`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    `connect-src 'self' https://cloudflareinsights.com ${serverUrl} ${wsUrl}${isDev ? " ws://localhost:3000" : ""}`,
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'none'",
+  ].join("; ") + ";";
 
   return (
     <html lang="en">
       <head>
-        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://monopoly-server-smff.onrender.com wss://monopoly-server-smff.onrender.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
+        <meta httpEquiv="Content-Security-Policy" content={csp} />
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />

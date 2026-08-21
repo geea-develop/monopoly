@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { GameState, GamePhase } from "@monopoly/shared";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { GameState, GamePhase, BOARD } from "@monopoly/shared";
 import { getSocket, emitWithTimeout, ConnectionStatus } from "@/lib/socket";
 import Board from "@/components/Board";
 import PlayerPanel from "@/components/PlayerPanel";
 import GameLog from "@/components/GameLog";
 import Actions from "@/components/Actions";
 import Lobby from "@/components/Lobby";
+import ToastContainer, { showToast } from "@/components/Toast";
 
 type Screen = "home" | "lobby" | "game";
 
@@ -19,11 +20,14 @@ export default function Home() {
   const [gameCode, setGameCode] = useState("");
   const [buyOption, setBuyOption] = useState<{ tileIndex: number; price: number } | null>(null);
   const [hasRolled, setHasRolled] = useState(false);
+  const [diceRolling, setDiceRolling] = useState(false);
   const [error, setError] = useState("");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [isLoading, setIsLoading] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [hasInvite, setHasInvite] = useState(false);
+  const gameRef = useRef<GameState | null>(null);
+  gameRef.current = game;
 
   // Read game code from URL and restore session on mount
   useEffect(() => {
@@ -53,6 +57,8 @@ export default function Home() {
 
     socket.on("game:state", (state) => {
       setGame(state);
+      // Stop dice animation after state update (with small delay so animation feels complete)
+      setTimeout(() => setDiceRolling(false), 1000);
       if (state.phase === GamePhase.Lobby) {
         setScreen("lobby");
       } else if (state.phase === GamePhase.Playing || state.phase === GamePhase.Finished) {
@@ -74,17 +80,58 @@ export default function Home() {
     });
 
     socket.on("turn:buy_option", (data) => {
-      setBuyOption(data);
+      // Delay showing buy option until dice animation finishes
+      setTimeout(() => setBuyOption(data), 1200);
     });
 
     socket.on("turn:next", () => {
       setHasRolled(false);
+      setDiceRolling(false);
       setBuyOption(null);
     });
 
     socket.on("error", (data) => {
       setError(data.message);
       setTimeout(() => setError(""), 3000);
+    });
+
+    // ── Toast notifications for game events ──
+    socket.on("turn:rent_paid", (data) => {
+      const payer = gameRef.current?.players.find((p) => p.id === data.payerId);
+      const owner = gameRef.current?.players.find((p) => p.id === data.ownerId);
+      showToast(`${payer?.name ?? "?"} paid $${data.amount} rent to ${owner?.name ?? "?"}`, "money");
+    });
+
+    socket.on("turn:bought", (data) => {
+      const buyer = gameRef.current?.players.find((p) => p.id === data.playerId);
+      const tileName = BOARD[data.tileIndex]?.name ?? "property";
+      showToast(`${buyer?.name ?? "?"} bought ${tileName}`, "success");
+    });
+
+    socket.on("turn:tax_paid", (data) => {
+      const player = gameRef.current?.players.find((p) => p.id === data.playerId);
+      showToast(`${player?.name ?? "?"} paid $${data.amount} tax`, "danger");
+    });
+
+    socket.on("turn:jail", (data) => {
+      const player = gameRef.current?.players.find((p) => p.id === data.playerId);
+      showToast(`${player?.name ?? "?"} was sent to Jail! 🔒`, "danger");
+    });
+
+    socket.on("turn:card", (data) => {
+      showToast(`🃏 ${data.cardText}`, "info", 4000);
+    });
+
+    socket.on("turn:bankrupt", (data) => {
+      const player = gameRef.current?.players.find((p) => p.id === data.playerId);
+      showToast(`💀 ${player?.name ?? "?"} went bankrupt!`, "danger", 5000);
+    });
+
+    socket.on("turn:rolled", (data) => {
+      const player = gameRef.current?.players.find((p) => p.id === data.playerId);
+      if (data.passedGo) {
+        showToast(`${player?.name ?? "?"} passed Go — collected $200`, "money");
+      }
     });
 
     if (socket.connected) {
@@ -101,6 +148,13 @@ export default function Home() {
       socket.off("turn:buy_option");
       socket.off("turn:next");
       socket.off("error");
+      socket.off("turn:rent_paid");
+      socket.off("turn:bought");
+      socket.off("turn:tax_paid");
+      socket.off("turn:jail");
+      socket.off("turn:card");
+      socket.off("turn:bankrupt");
+      socket.off("turn:rolled");
     };
   }, []);
 
@@ -396,6 +450,7 @@ export default function Home() {
   return (
     <main className="min-h-screen p-2 lg:p-4">
       {showLeaveConfirm && <LeaveConfirmDialog />}
+      <ToastContainer />
 
       {error && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-900/90 border border-red-600 rounded px-4 py-2 text-sm text-red-300 z-50">
@@ -406,7 +461,7 @@ export default function Home() {
       <div className="flex flex-col lg:flex-row gap-4 max-w-[1200px] mx-auto">
         {/* Board */}
         <div className="flex-1">
-          <Board game={game} myPlayerId={myPlayerId} />
+          <Board game={game} myPlayerId={myPlayerId} diceRolling={diceRolling} />
         </div>
 
         {/* Sidebar */}
@@ -417,7 +472,7 @@ export default function Home() {
             buyOption={buyOption}
             onClearBuyOption={() => setBuyOption(null)}
             hasRolled={hasRolled}
-            onRolled={() => setHasRolled(true)}
+            onRolled={() => { setHasRolled(true); setDiceRolling(true); }}
           />
           <PlayerPanel game={game} myPlayerId={myPlayerId} />
           <GameLog game={game} />

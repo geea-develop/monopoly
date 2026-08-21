@@ -7,3 +7,49 @@ body {
   background-color: #111827;
   color: #f9fafb;
 }
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+@keyframes dice-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.2); }
+  50% { transform: rotate(180deg) scale(1); }
+  75% { transform: rotate(270deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes dice-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-dice-roll {
+  animation: dice-roll 0.4s ease-in-out 3;
+}
+
+.animate-dice-settle {
+  animation: dice-bounce 0.3s ease-out;
+}
+
+@keyframes player-land {
+  0% { transform: scale(0.3); opacity: 0.5; }
+  60% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-player-land {
+  animation: player-land 0.15s ease-out;
+}
