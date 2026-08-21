@@ -1,4 +1,4 @@
-import { CardAction, GameCard } from "./types";
+import { CardAction, GameCard } from "./types.js";
 
 export const CHANCE_CARDS: GameCard[] = [
   { text: "Advance to Boardwalk.", action: CardAction.MoveTo, value: 39 },

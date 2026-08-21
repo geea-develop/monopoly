@@ -1,4 +1,4 @@
-import { Tile, TileType, ColorGroup } from "./types";
+import { Tile, TileType, ColorGroup } from "./types.js";
 
 export const BOARD: Tile[] = [
   { index: 0, name: "GO", type: TileType.Go },

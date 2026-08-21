@@ -1,4 +1,4 @@
-import { GameState, Player } from "./types";
+import { GameState, Player } from "./types.js";
 
 // ─── Client → Server Events ─────────────────────────────────────────────────
 
