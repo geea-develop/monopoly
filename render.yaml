@@ -16,9 +16,3 @@ services:
         value: "3001"
       - key: CLIENT_URL
         value: https://geea-develop.github.io
-      - key: DATA_DIR
-        value: /opt/render/project/src/data
-    disk:
-      name: monopoly-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
