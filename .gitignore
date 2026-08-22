@@ -7,6 +7,8 @@ out/
 *.db
 *.tsbuildinfo
 .DS_Store
+AGENTS.md
+CLAUDE.md
 playwright-report/
 test-results/
 
