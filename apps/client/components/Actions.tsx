@@ -21,7 +21,7 @@ export default function Actions({ game, myPlayerId, buyOption, onClearBuyOption,
   if (game.phase === GamePhase.Finished) {
     const winner = game.players.find((p) => p.id === game.winner);
     return (
-      <div className="rounded-lg border border-yellow-600 bg-yellow-900/50 p-3 text-center sm:p-4">
+      <div className="retro-card rounded-lg border border-yellow-600/70 p-3 text-center sm:p-4">
         <div className="text-3xl mb-2">🏆</div>
         <div className="font-bold text-yellow-300 text-lg">{winner?.name} wins!</div>
         <div className="text-sm text-gray-400 mt-1">Final balance: ${winner?.balance.toLocaleString()}</div>
@@ -31,7 +31,7 @@ export default function Actions({ game, myPlayerId, buyOption, onClearBuyOption,
 
   if (!isMyTurn) {
     return (
-      <div className="rounded-lg border border-gray-700 bg-gray-800 p-3 text-center sm:p-4">
+      <div className="retro-card rounded-lg border p-3 text-center sm:p-4">
         <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Current turn</div>
         <div className="font-bold text-white flex items-center justify-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: currentPlayer?.color }} />
@@ -49,7 +49,7 @@ export default function Actions({ game, myPlayerId, buyOption, onClearBuyOption,
   // In jail
   if (myPlayer?.inJail) {
     return (
-      <div className="space-y-3 rounded-lg border border-red-700/50 bg-gray-800 p-3 sm:p-4">
+      <div className="retro-card space-y-3 rounded-lg border border-red-700/50 p-3 sm:p-4">
         <div className="flex items-center gap-2">
           <span className="text-lg">🔒</span>
           <span className="text-red-400 font-medium text-sm">You are in Jail!</span>
@@ -88,7 +88,7 @@ export default function Actions({ game, myPlayerId, buyOption, onClearBuyOption,
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-green-700/50 bg-gray-800 p-3 sm:p-4">
+    <div className="retro-card space-y-3 rounded-lg border border-emerald-600/60 p-3 sm:p-4">
       <div className="flex items-center gap-2">
         <span className="text-lg">🎯</span>
         <span className="text-green-400 font-medium text-sm">Your turn!</span>

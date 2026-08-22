@@ -130,7 +130,7 @@ export default function Board({ game, myPlayerId, diceRolling }: BoardProps) {
         </div>
 
         {/* Center */}
-        <div className="relative col-span-9 flex min-h-[160px] flex-col items-center justify-center border border-gray-700 bg-emerald-950/50 p-2 sm:min-h-[360px] sm:p-4">
+        <div className="board-center relative col-span-9 flex min-h-[104px] flex-col items-center justify-center border border-emerald-700/60 p-2 sm:min-h-[360px] sm:p-4">
           <h2 className="mb-1 text-lg font-bold tracking-wide text-emerald-300 sm:mb-4 sm:text-3xl">MONOPOLY</h2>
 
           {/* Dice display */}
@@ -339,7 +339,7 @@ function TileCell({ tile, game, side, isHovered, onHover, isLanded, animatingPla
         {TILE_ICONS[tile.type] && !isProperty ? (
           <span className="text-[10px] leading-none">{TILE_ICONS[tile.type]}</span>
         ) : null}
-        <span className="mt-0.5 line-clamp-2 text-center text-[8px] font-medium leading-tight text-gray-300 sm:text-[7px]">
+        <span className="mt-0.5 line-clamp-2 text-center text-[7px] font-medium leading-[0.9] text-gray-200 sm:text-[7px]">
           {displayName}
         </span>
         {/* Price for buyable tiles */}
@@ -386,6 +386,34 @@ function TileCell({ tile, game, side, isHovered, onHover, isLanded, animatingPla
 
 function getShortName(name: string, isCorner: boolean): string {
   if (isCorner) return name.split("/")[0].trim();
+
+  const compactNames: Record<string, string> = {
+    "Kentucky Avenue": "Ky. Ave",
+    "Indiana Avenue": "Ind. Ave",
+    "Illinois Avenue": "Ill. Ave",
+    "Atlantic Avenue": "Atl. Ave",
+    "Ventnor Avenue": "Vent. Ave",
+    "Marvin Gardens": "Marvin Gdns",
+    "Pacific Avenue": "Pac. Ave",
+    "North Carolina Avenue": "N. Carolina",
+    "Pennsylvania Avenue": "Penn. Ave",
+    "Park Place": "Park Pl",
+    "Connecticut Avenue": "Conn. Ave",
+    "Vermont Avenue": "Vt. Ave",
+    "Virginia Avenue": "Va. Ave",
+    "States Avenue": "States Ave",
+    "St. James Place": "St. James",
+    "Tennessee Avenue": "Tenn. Ave",
+    "New York Avenue": "N.Y. Ave",
+    "Mediterranean Avenue": "Med. Ave",
+    "Oriental Avenue": "Oriental Ave",
+    "Baltic Avenue": "Baltic Ave",
+    "Reading Railroad": "Reading RR",
+    "Pennsylvania Railroad": "Penn. RR",
+    "B&O Railroad": "B&O RR",
+    "Short Line Railroad": "Short Line RR",
+  };
+  if (compactNames[name]) return compactNames[name];
 
   // Abbreviate common words
   return name

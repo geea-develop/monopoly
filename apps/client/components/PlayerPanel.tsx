@@ -39,7 +39,7 @@ export default function PlayerPanel({ game, myPlayerId }: PlayerPanelProps) {
         return (
           <div
             key={player.id}
-            className={`rounded border transition-colors ${
+            className={`retro-card rounded border transition-colors ${
               isCurrent ? "border-yellow-400 bg-gray-800" : "border-gray-700 bg-gray-900"
             } ${player.status === "bankrupt" ? "opacity-40" : ""}`}
           >
