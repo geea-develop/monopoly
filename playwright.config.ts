@@ -15,7 +15,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "PORT=3011 MONOPOLY_TEST_DICE=3,3 npm run dev:server",
+      command: "PORT=3011 MONOPOLY_TEST_DICE=3,3 node --import tsx apps/server/src/index.ts",
       url: "http://localhost:3011/health",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
