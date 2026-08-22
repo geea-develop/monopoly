@@ -130,8 +130,8 @@ export default function Board({ game, myPlayerId, diceRolling }: BoardProps) {
         </div>
 
         {/* Center */}
-        <div className="relative col-span-9 flex min-h-[220px] flex-col items-center justify-center border border-gray-700 bg-emerald-950/50 p-2 sm:min-h-[360px] sm:p-4">
-          <h2 className="mb-2 text-xl font-bold tracking-wide text-emerald-300 sm:mb-4 sm:text-3xl">MONOPOLY</h2>
+        <div className="relative col-span-9 flex min-h-[160px] flex-col items-center justify-center border border-gray-700 bg-emerald-950/50 p-2 sm:min-h-[360px] sm:p-4">
+          <h2 className="mb-1 text-lg font-bold tracking-wide text-emerald-300 sm:mb-4 sm:text-3xl">MONOPOLY</h2>
 
           {/* Dice display */}
           {(game.lastDice || diceRolling) && (
@@ -151,12 +151,12 @@ export default function Board({ game, myPlayerId, diceRolling }: BoardProps) {
           )}
 
           {/* Turn info */}
-          <div className="text-sm text-gray-400">
+          <div className="text-xs text-gray-400 sm:text-sm">
             Turn {game.turn} / {game.maxTurns}
           </div>
 
           {/* Current player indicator */}
-          <div className="mt-3 text-sm">
+          <div className="mt-2 text-xs sm:mt-3 sm:text-sm">
             <span className="text-gray-500">Playing: </span>
             <span className="font-bold" style={{ color: game.players[game.currentPlayerIndex]?.color }}>
               {game.players[game.currentPlayerIndex]?.name}
@@ -339,12 +339,12 @@ function TileCell({ tile, game, side, isHovered, onHover, isLanded, animatingPla
         {TILE_ICONS[tile.type] && !isProperty ? (
           <span className="text-[10px] leading-none">{TILE_ICONS[tile.type]}</span>
         ) : null}
-        <span className="text-[7px] leading-tight text-center text-gray-300 font-medium mt-0.5 line-clamp-2">
+        <span className="mt-0.5 line-clamp-2 text-center text-[8px] font-medium leading-tight text-gray-300 sm:text-[7px]">
           {displayName}
         </span>
         {/* Price for buyable tiles */}
         {(tile.type === TileType.Property || tile.type === TileType.Railroad || tile.type === TileType.Utility) && !owned && (
-          <span className="text-[6px] text-green-500 mt-0.5">${(tile as PropertyTile | RailroadTile | UtilityTile).price}</span>
+          <span className="mt-0.5 text-[7px] text-green-500 sm:text-[6px]">${(tile as PropertyTile | RailroadTile | UtilityTile).price}</span>
         )}
       </div>
 

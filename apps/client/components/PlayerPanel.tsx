@@ -24,8 +24,8 @@ export default function PlayerPanel({ game, myPlayerId }: PlayerPanelProps) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-bold text-gray-400 uppercase">Players</h3>
+    <div className="grid grid-cols-2 gap-2 sm:block sm:space-y-2">
+      <h3 className="col-span-2 text-sm font-bold uppercase text-gray-400">Players</h3>
       {game.players.map((player) => {
         const isCurrent = currentPlayer?.id === player.id;
         const isMe = player.id === myPlayerId;
