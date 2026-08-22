@@ -21,13 +21,13 @@ export default function Lobby({ game, myPlayerId }: LobbyProps) {
   };
 
   return (
-    <div className="max-w-md mx-auto text-center space-y-6">
+    <div data-testid="game-lobby" className="max-w-md mx-auto text-center space-y-6">
       <h2 className="text-2xl font-bold">Game Lobby</h2>
 
       <div className="bg-gray-800 border border-gray-700 rounded p-4">
         <div className="text-sm text-gray-400 mb-2">Share this code to invite players:</div>
         <div className="text-3xl font-mono font-bold text-yellow-400 tracking-wider">
-          {game.id}
+          <span data-testid="game-code">{game.id}</span>
         </div>
         <div className="flex justify-center gap-3 mt-3">
           <button

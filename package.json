@@ -14,12 +14,18 @@
     "build": "npm run build --workspace=@monopoly/shared && npm run build --workspace=@monopoly/server && npm run build --workspace=@monopoly/client",
     "build:shared": "npm run build --workspace=@monopoly/shared",
     "build:server": "npm run build --workspace=@monopoly/server",
-    "build:client": "npm run build --workspace=@monopoly/client"
+    "build:client": "npm run build --workspace=@monopoly/client",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium chromium-headless-shell"
   },
   "engines": {
     "node": ">=20"
   },
   "allowScripts": {
     "esbuild@0.21.5": true
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

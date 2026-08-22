@@ -7,6 +7,8 @@ out/
 *.db
 *.tsbuildinfo
 .DS_Store
+playwright-report/
+test-results/
 
 # Compiled output that might land in src/
 packages/shared/src/**/*.js

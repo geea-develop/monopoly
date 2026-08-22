@@ -72,6 +72,10 @@ export function startGame(game: GameState): boolean {
 }
 
 export function rollDice(): [number, number] {
+  const forced = process.env.MONOPOLY_TEST_DICE?.split(",").map(Number);
+  if (forced?.length === 2 && forced.every((value) => Number.isInteger(value) && value >= 1 && value <= 6)) {
+    return [forced[0], forced[1]];
+  }
   return [
     Math.floor(Math.random() * 6) + 1,
     Math.floor(Math.random() * 6) + 1,

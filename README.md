@@ -21,7 +21,7 @@ A real-time multiplayer Monopoly game built with TypeScript. Roll dice, buy prop
 ```
 monopoly/
 ├── apps/
-│   ├── client/         # Next.js 14 static export → GitHub Pages
+│   ├── client/         # Next.js 16 static export → GitHub Pages
 │   └── server/         # Express + Socket.IO → Render
 ├── packages/
 │   └── shared/         # Board data, types, socket event contracts
@@ -35,7 +35,7 @@ monopoly/
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 14, React 18, Tailwind CSS, Socket.IO Client |
+| Frontend | Next.js 16, React 19, Tailwind CSS, Socket.IO Client |
 | Backend | Express, Socket.IO, Node.js 20 |
 | Database | Upstash Redis (HTTP, serverless) |
 | Shared | TypeScript types, 40-tile board definition, event contracts |
@@ -81,6 +81,29 @@ Or separately:
 npm run dev:server   # http://localhost:3001 (hot reload)
 npm run dev:client   # http://localhost:3000 (Next.js HMR)
 ```
+
+### End-to-end tests
+
+Install the Playwright browser once, then run the lobby and multiplayer flows:
+
+```bash
+npm run test:e2e:install
+npm run test:e2e
+```
+
+The suite uses isolated ports 3010/3011 so it can run while another local game is using 3000/3001. Use `npm run test:e2e:ui` when iterating interactively.
+
+The E2E suite currently covers connected startup, lobby creation and joining,
+invite-code errors, session rejoin after reload, browser connectivity recovery,
+turn synchronization, and property purchase synchronization. Test servers use
+`MONOPOLY_TEST_DICE` to make purchase scenarios deterministic without affecting
+production runs.
+
+### Quality and security
+
+- `npm audit` currently reports zero vulnerabilities.
+- CI builds all workspaces and runs the Playwright suite on every push and pull request.
+- The production client deploys to GitHub Pages and the Socket.IO server deploys to Render.
 
 ### Build
 

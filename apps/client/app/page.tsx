@@ -176,6 +176,20 @@ export default function Home() {
     };
   }, []);
 
+  // Reflect browser-level connectivity immediately, even before Socket.IO emits
+  // its disconnect/reconnect events.
+  useEffect(() => {
+    const handleOffline = () => setConnectionStatus("disconnected");
+    const handleOnline = () => setConnectionStatus(getSocket().connected ? "connected" : "connecting");
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
+
   // Auto-rejoin from sessionStorage on connect
   useEffect(() => {
     const socket = getSocket();
