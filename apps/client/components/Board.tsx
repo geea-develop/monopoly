@@ -130,12 +130,12 @@ export default function Board({ game, myPlayerId, diceRolling }: BoardProps) {
         </div>
 
         {/* Center */}
-        <div className="col-span-9 bg-emerald-950/50 border border-gray-700 flex flex-col items-center justify-center min-h-[360px] p-4 relative">
-          <h2 className="text-3xl font-bold text-emerald-300 tracking-wide mb-4">MONOPOLY</h2>
+        <div className="relative col-span-9 flex min-h-[220px] flex-col items-center justify-center border border-gray-700 bg-emerald-950/50 p-2 sm:min-h-[360px] sm:p-4">
+          <h2 className="mb-2 text-xl font-bold tracking-wide text-emerald-300 sm:mb-4 sm:text-3xl">MONOPOLY</h2>
 
           {/* Dice display */}
           {(game.lastDice || diceRolling) && (
-            <div className="flex items-center gap-3 mb-3">
+            <div className="mb-2 flex items-center gap-2 sm:mb-3 sm:gap-3">
               {diceRolling ? (
                 <>
                   <Die value={null} rolling />
@@ -229,7 +229,7 @@ function TileTooltip({ tileIndex, game }: { tileIndex: number; game: GameState }
   const owner = owned ? game.players.find((p) => p.id === owned.ownerId) : null;
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-lg text-sm min-w-[200px] z-10">
+    <div className="absolute bottom-2 left-1/2 z-10 w-[calc(100vw-32px)] max-w-[260px] -translate-x-1/2 rounded-lg border border-gray-600 bg-gray-900 p-3 text-sm shadow-lg sm:bottom-4 sm:min-w-[200px]">
       <div className="font-bold text-white mb-1">{tile.name}</div>
 
       {tile.type === TileType.Property && (
@@ -365,14 +365,14 @@ function TileCell({ tile, game, side, isHovered, onHover, isLanded, animatingPla
             {playersHere.map((p) => (
               <div
                 key={p.id}
-                className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${isLanded ? "animate-player-land" : ""}`}
+                className={`h-3 w-3 rounded-full border border-white shadow-lg sm:h-4 sm:w-4 sm:border-2 ${isLanded ? "animate-player-land" : ""}`}
                 style={{
                   backgroundColor: p.color,
                   boxShadow: `0 0 6px ${p.color}, 0 0 2px rgba(255,255,255,0.8)`,
                 }}
                 title={p.name}
               >
-                <span className="flex items-center justify-center w-full h-full text-[8px] font-bold text-white drop-shadow">
+                <span className="flex h-full w-full items-center justify-center text-[6px] font-bold text-white drop-shadow sm:text-[8px]">
                   {p.name[0]}
                 </span>
               </div>

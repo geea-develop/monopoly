@@ -341,7 +341,7 @@ export default function Home() {
     const buttonsDisabled = isDisconnected || isLoading;
 
     return (
-      <main className="min-h-screen flex items-center justify-center p-4">
+      <main className="min-h-[100dvh] flex items-center justify-center p-4">
         <div className="max-w-sm w-full space-y-6">
           <h1 className="text-4xl font-bold text-center">🎩 Monopoly</h1>
           <p className="text-center text-gray-400">Multiplayer board game — up to 4 players</p>
@@ -463,7 +463,7 @@ export default function Home() {
   // ─── Lobby Screen ───────────────────────────────────────────────────────────
   if (screen === "lobby") {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4">
+      <main className="min-h-[100dvh] flex items-center justify-center p-4 pb-16">
         {showLeaveConfirm && <LeaveConfirmDialog />}
         <div className="space-y-4">
           <Lobby game={game} myPlayerId={myPlayerId} />
@@ -480,7 +480,7 @@ export default function Home() {
 
   // ─── Game Screen ──────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen p-2 lg:p-4">
+    <main className="min-h-[100dvh] px-2 pb-16 pt-2 sm:p-4">
       {showLeaveConfirm && <LeaveConfirmDialog />}
       {game.phase === GamePhase.Finished && (
         <WinScreen
@@ -507,14 +507,14 @@ export default function Home() {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-4 max-w-[1200px] mx-auto">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-3 sm:gap-4 lg:flex-row">
         {/* Board */}
         <div className="flex-1">
           <Board game={game} myPlayerId={myPlayerId} diceRolling={diceRolling} />
         </div>
 
         {/* Sidebar */}
-        <div className="w-full lg:w-72 space-y-4">
+        <div className="w-full space-y-3 sm:space-y-4 lg:w-72">
           <Actions
             game={game}
             myPlayerId={myPlayerId}

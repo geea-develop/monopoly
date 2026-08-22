@@ -3,9 +3,19 @@
 @tailwind utilities;
 
 body {
+  overflow-x: hidden;
   font-family: system-ui, -apple-system, sans-serif;
   background-color: #111827;
   color: #f9fafb;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 640px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 @keyframes slide-in {

@@ -15,7 +15,7 @@ export default function GameLog({ game }: GameLogProps) {
   }, [game.log.length]);
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded p-2 h-48 overflow-y-auto text-xs">
+    <div className="h-40 overflow-y-auto rounded border border-gray-700 bg-gray-900 p-2 text-xs sm:h-48">
       <h3 className="text-sm font-bold text-gray-400 uppercase mb-2 sticky top-0 bg-gray-900">Game Log</h3>
       {game.log.slice(-30).map((entry, i) => (
         <div key={i} className="text-gray-300 py-0.5 border-b border-gray-800">
