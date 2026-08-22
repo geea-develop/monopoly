@@ -1,9 +1,24 @@
 {
   "name": "Monopoly — Multiplayer",
   "short_name": "Monopoly",
-  "start_url": ".",
+  "start_url": "/monopoly/",
+  "scope": "/monopoly/",
   "display": "standalone",
   "background_color": "#111827",
   "theme_color": "#111827",
-  "description": "Free multiplayer Monopoly game"
+  "description": "Free multiplayer Monopoly game",
+  "icons": [
+    {
+      "src": "/monopoly/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/monopoly/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }
