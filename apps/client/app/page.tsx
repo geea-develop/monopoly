@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { GameState, GamePhase, BOARD } from "@monopoly/shared";
-import { getSocket, emitWithTimeout, ConnectionStatus } from "@/lib/socket";
+import { getSocket, emitWithTimeout, ConnectionStatus, startOfflineGame, exitOfflineGame, hasOfflineSave, resumeOfflineGame, isOffline } from "@/lib/socket";
+import { Difficulty } from "@monopoly/shared";
 import Board from "@/components/Board";
 import PlayerPanel from "@/components/PlayerPanel";
 import GameLog from "@/components/GameLog";
@@ -28,6 +29,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [hasInvite, setHasInvite] = useState(false);
+  const [botCount, setBotCount] = useState(1);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  // Bumped whenever the underlying socket instance changes (e.g. entering
+  // offline mode) so the listener effect re-subscribes to the new socket.
+  const [socketEpoch, setSocketEpoch] = useState(0);
   const gameRef = useRef<GameState | null>(null);
   gameRef.current = game;
   const myPlayerIdRef = useRef<string | null>(null);
@@ -174,7 +180,7 @@ export default function Home() {
       socket.off("turn:bankrupt");
       socket.off("turn:rolled");
     };
-  }, []);
+  }, [socketEpoch]);
 
   // Reflect browser-level connectivity immediately, even before Socket.IO emits
   // its disconnect/reconnect events.
@@ -192,6 +198,25 @@ export default function Home() {
 
   // Auto-rejoin from sessionStorage on connect
   useEffect(() => {
+    // Offline games resume locally without any socket connection.
+    const stored = sessionStorage.getItem("monopoly_session");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.offline && hasOfflineSave()) {
+          resumeOfflineGame();
+          setMyPlayerId(parsed.playerId);
+          setConnectionStatus("connected");
+          setSocketEpoch((e) => e + 1);
+          setTimeout(() => {
+            const socket = getSocket();
+            socket.emit("game:rejoin", { gameId: parsed.gameId, playerId: parsed.playerId }, () => {});
+          }, 0);
+          return;
+        }
+      } catch { /* fall through to online rejoin */ }
+    }
+
     const socket = getSocket();
 
     const attemptRejoin = () => {
@@ -228,6 +253,24 @@ export default function Home() {
       socket.off("connect", attemptRejoin);
     };
   }, []);
+
+  const handlePlayOffline = useCallback(() => {
+    if (!playerName.trim()) return;
+    setError("");
+    // Create a local (no-network) game: 1 human + botCount AI opponents.
+    const { gameId, playerId } = startOfflineGame(playerName.trim(), botCount, difficulty);
+    setMyPlayerId(playerId);
+    sessionStorage.setItem("monopoly_session", JSON.stringify({ gameId, playerId, offline: true }));
+    setConnectionStatus("connected");
+    // getSocket() now returns the local adapter; re-run the listener effect so
+    // it subscribes to it, then push initial state + start after listeners bind.
+    setSocketEpoch((e) => e + 1);
+    setTimeout(() => {
+      const socket = getSocket();
+      socket.emit("game:create", { playerName: playerName.trim() }, () => {});
+      socket.emit("game:start", () => {});
+    }, 0);
+  }, [playerName, botCount, difficulty]);
 
   const handleCreate = useCallback(async () => {
     if (!playerName.trim()) return;
@@ -278,6 +321,7 @@ export default function Home() {
 
   const handleLeaveGame = useCallback(() => {
     sessionStorage.removeItem("monopoly_session");
+    const wasOffline = isOffline();
     setGame(null);
     setMyPlayerId(null);
     setScreen("home");
@@ -290,6 +334,10 @@ export default function Home() {
     const url = new URL(window.location.href);
     url.searchParams.delete("game");
     window.history.replaceState({}, "", url.toString());
+    if (wasOffline) {
+      exitOfflineGame();
+      return;
+    }
     // Disconnect and reconnect to leave the socket room
     const socket = getSocket();
     socket.disconnect();
@@ -341,7 +389,7 @@ export default function Home() {
     const buttonsDisabled = isDisconnected || isLoading;
 
     return (
-      <main className="min-h-[100dvh] flex items-center justify-center p-4">
+      <main className="min-h-[100dvh] flex items-center justify-center p-4 pb-28">
         <div className="max-w-sm w-full space-y-6">
           <h1 className="text-4xl font-bold text-center">🎩 Monopoly</h1>
           <p className="text-center text-gray-400">Multiplayer board game — up to 4 players</p>
@@ -453,6 +501,63 @@ export default function Home() {
               </div>
             </>
           )}
+
+          {/* ── Offline single-player (works with no internet) ── */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-gray-900 px-2 text-gray-500">or play offline</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded border border-gray-700 bg-gray-800/40 p-3">
+            <div className="text-sm font-medium text-gray-200">🤖 Play vs Computer</div>
+            <p className="text-xs text-gray-500">Single-player against AI — no internet needed.</p>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Opponents</label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setBotCount(n)}
+                    className={`flex-1 py-2 rounded text-sm font-medium ${
+                      botCount === n ? "bg-yellow-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {n} bot{n > 1 ? "s" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Difficulty</label>
+              <div className="flex gap-2">
+                {(["easy", "medium", "hard"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDifficulty(d)}
+                    className={`flex-1 py-2 rounded text-sm font-medium capitalize ${
+                      difficulty === d ? "bg-yellow-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handlePlayOffline}
+              disabled={!playerName.trim()}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded"
+            >
+              ▶ Play Offline
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -488,6 +593,7 @@ export default function Home() {
           myPlayerId={myPlayerId}
           onPlayAgain={() => {
             sessionStorage.removeItem("monopoly_session");
+            if (isOffline()) exitOfflineGame();
             setGame(null);
             setScreen("home");
             setMyPlayerId(null);
