@@ -7,8 +7,6 @@ import {
   GamePhase,
   ClientToServerEvents,
   ServerToClientEvents,
-} from "@monopoly/shared";
-import {
   createGame,
   addPlayer,
   startGame,
@@ -21,7 +19,7 @@ import {
   payJailFee,
   jailRoll,
   LandingResult,
-} from "./game.js";
+} from "@monopoly/shared";
 import { initDb, saveGame, loadGame } from "./db.js";
 
 // ─── Setup ──────────────────────────────────────────────────────────────────

@@ -13,6 +13,9 @@ import {
   UtilityTile,
   CardAction,
   GameCard,
+  ColorGroup,
+} from "./types.js";
+import {
   BOARD,
   GO_SALARY,
   STARTING_BALANCE,
@@ -20,10 +23,8 @@ import {
   JAIL_POSITION,
   JAIL_FEE,
   MAX_JAIL_TURNS,
-  CHANCE_CARDS,
-  COMMUNITY_CHEST_CARDS,
-  ColorGroup,
-} from "@monopoly/shared";
+} from "./board.js";
+import { CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from "./cards.js";
 
 const PLAYER_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#eab308"];
 
