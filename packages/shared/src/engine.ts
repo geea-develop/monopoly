@@ -124,7 +124,7 @@ export interface LandingResult {
   bankrupt?: boolean;
 }
 
-export function processLanding(game: GameState, player: Player): LandingResult {
+export function processLanding(game: GameState, player: Player, depth = 0): LandingResult {
   const tile = BOARD[player.position];
 
   switch (tile.type) {
@@ -167,10 +167,18 @@ export function processLanding(game: GameState, player: Player): LandingResult {
 
     case TileType.Chance:
     case TileType.CommunityChest: {
+      if (depth >= 1) {
+        return { type: "nothing" };
+      }
       const cards = tile.type === TileType.Chance ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS;
       const card = cards[Math.floor(Math.random() * cards.length)];
+      const before = player.position;
       processCard(game, player, card);
-      return { type: "card", cardText: card.text };
+      if (player.inJail || player.status !== PlayerStatus.Active || player.position === before) {
+        return { type: "card", cardText: card.text };
+      }
+      const followUp = processLanding(game, player, depth + 1);
+      return { ...followUp, cardText: card.text };
     }
 
     default:
@@ -352,6 +360,11 @@ export function bankruptPlayer(game: GameState, player: Player): void {
 export function advanceTurn(game: GameState): { gameOver: boolean; winnerId?: string; reason?: string } {
   // Check win condition: only one active player left
   const activePlayers = getActivePlayers(game);
+  if (activePlayers.length === 0) {
+    game.phase = GamePhase.Finished;
+    addLog(game, "", "All players are bankrupt. Game over.");
+    return { gameOver: true, reason: "All players bankrupt" };
+  }
   if (activePlayers.length === 1) {
     game.phase = GamePhase.Finished;
     game.winner = activePlayers[0].id;
@@ -360,9 +373,14 @@ export function advanceTurn(game: GameState): { gameOver: boolean; winnerId?: st
   }
 
   // Move to next active player
+  let iterations = 0;
   do {
     game.currentPlayerIndex = (game.currentPlayerIndex + 1) % game.players.length;
-  } while (game.players[game.currentPlayerIndex].status === PlayerStatus.Bankrupt);
+    iterations++;
+  } while (
+    game.players[game.currentPlayerIndex].status === PlayerStatus.Bankrupt &&
+    iterations <= game.players.length
+  );
 
   // If we looped back to the first player of this round, increment turn
   if (game.currentPlayerIndex === 0 || game.players.slice(0, game.currentPlayerIndex).every((p) => p.status === PlayerStatus.Bankrupt)) {

@@ -391,6 +391,9 @@ export class LocalGameSocket {
   }
 
   private emitLandingResult(player: Player, landing: ReturnType<typeof processLanding>): void {
+    if (landing.cardText) {
+      this.emitLocal("turn:card", { playerId: player.id, cardText: landing.cardText });
+    }
     switch (landing.type) {
       case "buy_option":
         this.emitLocal("turn:buy_option", { tileIndex: landing.tileIndex!, price: landing.amount! });
@@ -412,7 +415,6 @@ export class LocalGameSocket {
         this.emitLocal("turn:jail", { playerId: player.id });
         break;
       case "card":
-        this.emitLocal("turn:card", { playerId: player.id, cardText: landing.cardText! });
         break;
     }
   }
