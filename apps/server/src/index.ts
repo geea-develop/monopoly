@@ -42,6 +42,35 @@ const games = new Map<string, GameState>();
 // Track socket → player mapping
 const socketPlayerMap = new Map<string, { gameId: string; playerId: string }>();
 
+// ── Auto-end turn helper ──────────────────────────────────────────────────
+const autoEndTimers = new Map<string, NodeJS.Timeout>();
+
+async function autoEndTurn(gameId: string, playerId: string, delayMs = 2000) {
+  // Clear any existing timer for this game
+  const existing = autoEndTimers.get(gameId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(async () => {
+    autoEndTimers.delete(gameId);
+    const game = games.get(gameId);
+    if (!game || game.phase !== GamePhase.Playing) return;
+    if (getCurrentPlayer(game).id !== playerId) return;
+
+    const result = advanceTurn(game);
+    await saveGame(game);
+
+    if (result.gameOver) {
+      io.to(game.id).emit("game:ended", { winnerId: result.winnerId!, reason: result.reason! });
+    } else {
+      io.to(game.id).emit("turn:next", { currentPlayerIndex: game.currentPlayerIndex, turn: game.turn });
+    }
+
+    io.to(game.id).emit("game:state", game);
+  }, delayMs);
+
+  autoEndTimers.set(gameId, timer);
+}
+
 // ─── Rate limiting ──────────────────────────────────────────────────────────
 
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -223,35 +252,6 @@ io.on("connection", (socket) => {
     io.to(game.id).emit("game:started");
     io.to(game.id).emit("game:state", game);
   });
-
-  // ── Auto-end turn helper ──────────────────────────────────────────────────
-  const autoEndTimers = new Map<string, NodeJS.Timeout>();
-
-  async function autoEndTurn(gameId: string, playerId: string, delayMs = 2000) {
-    // Clear any existing timer for this game
-    const existing = autoEndTimers.get(gameId);
-    if (existing) clearTimeout(existing);
-
-    const timer = setTimeout(async () => {
-      autoEndTimers.delete(gameId);
-      const game = games.get(gameId);
-      if (!game || game.phase !== GamePhase.Playing) return;
-      if (getCurrentPlayer(game).id !== playerId) return;
-
-      const result = advanceTurn(game);
-      await saveGame(game);
-
-      if (result.gameOver) {
-        io.to(game.id).emit("game:ended", { winnerId: result.winnerId!, reason: result.reason! });
-      } else {
-        io.to(game.id).emit("turn:next", { currentPlayerIndex: game.currentPlayerIndex, turn: game.turn });
-      }
-
-      io.to(game.id).emit("game:state", game);
-    }, delayMs);
-
-    autoEndTimers.set(gameId, timer);
-  }
 
   // ── Roll Dice ─────────────────────────────────────────────────────────────
   socket.on("turn:roll", async () => {
@@ -446,6 +446,9 @@ io.on("connection", (socket) => {
   }
 
   function emitLandingResult(game: GameState, player: { id: string }, landing: LandingResult) {
+    if (landing.cardText) {
+      io.to(game.id).emit("turn:card", { playerId: player.id, cardText: landing.cardText });
+    }
     switch (landing.type) {
       case "buy_option":
         socket.emit("turn:buy_option", { tileIndex: landing.tileIndex!, price: landing.amount! });
@@ -471,7 +474,6 @@ io.on("connection", (socket) => {
         io.to(game.id).emit("turn:jail", { playerId: player.id });
         break;
       case "card":
-        io.to(game.id).emit("turn:card", { playerId: player.id, cardText: landing.cardText! });
         break;
     }
   }

@@ -17,6 +17,8 @@ import {
   getCurrentPlayer,
   decideBuy,
   decideJail,
+  CHANCE_CARDS,
+  CardAction,
 } from "@monopoly/shared";
 
 // ── Engine (relocated to @monopoly/shared) ──────────────────────────────────
@@ -150,6 +152,69 @@ test("decideJail: pay when flush, roll when short", () => {
 
   bot.balance = 500; // very comfortable
   assert.equal(decideJail(game, bot, "easy"), "pay");
+});
+
+// ── Fix #1: card-driven moves resolve the destination tile ─────────────────
+
+test("a MoveTo card onto an opponent-owned property charges rent", () => {
+  const game = createGame();
+  const p = addPlayer(game, "P1")!;
+  const owner = addPlayer(game, "P2")!;
+  startGame(game);
+
+  // St. Charles Place (tile 11) is the target of a Chance "Advance to..." card.
+  const propIndex = 11;
+  assert.equal(BOARD[propIndex].type, TileType.Property);
+  game.properties.push({ tileIndex: propIndex, ownerId: owner.id, houses: 0 });
+
+  // Find a Chance tile and force the RNG to draw a MoveTo-that-property card.
+  const chanceIndex = BOARD.findIndex((t) => t.type === TileType.Chance);
+  const cardIdx = CHANCE_CARDS.findIndex((c) => c.action === CardAction.MoveTo && c.value === propIndex);
+  assert.ok(cardIdx >= 0, "test needs a Chance card that advances to the buyable property");
+
+  p.position = chanceIndex;
+  const before = p.balance;
+  const ownerBefore = owner.balance;
+
+  const originalRandom = Math.random;
+  Math.random = () => cardIdx / CHANCE_CARDS.length;
+  try {
+    const landing = processLanding(game, p);
+    assert.equal(landing.type, "rent");
+    assert.equal(p.position, propIndex);
+    assert.ok(landing.cardText);
+    assert.ok(p.balance < before, "player should have paid rent");
+    assert.ok(owner.balance > ownerBefore, "owner should have received rent");
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
+test("a MoveTo card onto an unowned buyable property returns buy_option", () => {
+  const game = createGame();
+  const p = addPlayer(game, "P1")!;
+  addPlayer(game, "P2");
+  startGame(game);
+
+  const chanceIndex = BOARD.findIndex((t) => t.type === TileType.Chance);
+  // Use the Boardwalk card (index 39), which is never pre-owned in this test.
+  const cardIdx = CHANCE_CARDS.findIndex((c) => c.action === CardAction.MoveTo && c.value === 39);
+  assert.ok(cardIdx >= 0);
+
+  p.position = chanceIndex;
+  p.balance = 2000;
+
+  const originalRandom = Math.random;
+  Math.random = () => cardIdx / CHANCE_CARDS.length;
+  try {
+    const landing = processLanding(game, p);
+    assert.equal(landing.type, "buy_option");
+    assert.equal(p.position, 39);
+    assert.ok(landing.cardText);
+    assert.equal(landing.tileIndex, 39);
+  } finally {
+    Math.random = originalRandom;
+  }
 });
 
 // ── Offline orchestration (engine + AI, no network) ─────────────────────────
